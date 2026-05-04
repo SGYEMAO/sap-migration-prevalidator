@@ -1,0 +1,15 @@
+services:
+  sap-migration-agent:
+    build: .
+    container_name: sap-migration-agent
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./input:/app/input
+      - ./output:/app/output
+      - ./logs:/app/logs
+      - ./config_samples:/app/config_samples
+      - ./mappings:/app/mappings
+      - ./profiles:/app/profiles
+    environment:
+      - PYTHONUNBUFFERED=1
