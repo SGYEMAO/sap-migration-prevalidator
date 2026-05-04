@@ -258,6 +258,99 @@ Notification safety rules:
 - No automatic SAP upload.
 - No automatic SAP migration.
 
+## Folder Scanner Mode
+
+Use this mode when business users or migration consultants drop object load files into a watched folder instead of uploading them manually in Streamlit. Each migration object gets its own batch folder, so the folder name can be used as the migration object when template detection is weak or unavailable.
+
+Recommended structure:
+
+```text
+input/object_batches/MATERIAL_MASTER/incoming/
+input/object_batches/MATERIAL_MASTER/processing/
+input/object_batches/MATERIAL_MASTER/processed/
+input/object_batches/MATERIAL_MASTER/failed/
+
+input/object_batches/BP_CUSTOMER/incoming/
+input/object_batches/OPEN_PO/incoming/
+```
+
+Example:
+
+```text
+input/object_batches/MATERIAL_MASTER/incoming/material_load_001.xlsx
+```
+
+The scanner treats this as `MATERIAL_MASTER` when that folder name exists in `profiles/`. If the folder name is not a known profile, it falls back to template detection when enabled in `automation/settings.yml`.
+
+Run once:
+
+```bash
+python -m automation.folder_scanner --once
+```
+
+Run continuously:
+
+```bash
+python -m automation.folder_scanner
+```
+
+Use a custom settings file:
+
+```bash
+python -m automation.folder_scanner --settings automation/settings.yml --once
+```
+
+Docker example:
+
+```bash
+docker compose run --rm sap-migration-agent python -m automation.folder_scanner --once
+```
+
+Folder scanner outputs are written to the same unified output folders:
+
+```text
+output/reports
+output/cleaned_templates
+output/mapping_audits
+output/logs
+```
+
+## Folder Scanner Dashboard
+
+Use the Streamlit UI to scan object folders without using the CLI:
+
+- View object folder status.
+- Click `Scan Folder Once` to trigger validation.
+- Review latest scan results.
+- Download validation reports, cleaned templates, and mapping audits.
+
+Open the app:
+
+```bash
+streamlit run app/main.py
+```
+
+Then select `Folder Scanner Mode` in the sidebar.
+
+The dashboard shows counts for:
+
+```text
+object_name | incoming | processing | processed | failed
+```
+
+The UI is only a control layer. It calls `automation.folder_scanner.scan_once(settings)` once per button click, then displays the returned `BatchProcessResult` list.
+
+Design rules:
+
+- Folder scanner orchestrates only.
+- Batch processor validates.
+- Rule engine decides correctness.
+- Mapping engine only does deterministic mapping.
+- Auto Fix only outputs cleaned templates.
+- No SAP upload.
+- No source file overwrite.
+- No business data mutation in incoming folders.
+
 ## Add A New Migration Object
 
 1. Create `profiles/YOUR_OBJECT.yml`.
@@ -297,10 +390,12 @@ The included `sample_templates/material_master_legacy_values_sample.xlsx` demons
 
 ```bash
 pytest tests -q
+```
 
-```## Development Workflow
+## Development Workflow
 
 This project uses a branch-based pull request workflow. Develop changes on feature branches, run tests locally, push the branch, and open a pull request into `main`.
+
 ## Security Notes
 
 - Do not commit real SAP data.
@@ -308,3 +403,9 @@ This project uses a branch-based pull request workflow. Develop changes on featu
 - Do not store SMTP passwords or webhook URLs in settings.yml.
 - Use environment variables for secrets.
 
+## Quick Start (Docker)
+
+```bash
+docker build -t sap-migration-prevalidator .
+docker run -p 8501:8501 sap-migration-prevalidator
+```

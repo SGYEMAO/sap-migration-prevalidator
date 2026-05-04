@@ -24,7 +24,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 logger = logging.getLogger(__name__)
 
 
-def process_file(file_path: Path, settings: dict) -> BatchProcessResult:
+def process_file(
+    file_path: Path,
+    settings: dict,
+    object_name_override: str | None = None,
+) -> BatchProcessResult:
     file_path = Path(file_path)
     template_emails: list[str] = []
     notification_recipients: list[str] = []
@@ -36,16 +40,20 @@ def process_file(file_path: Path, settings: dict) -> BatchProcessResult:
         notification_recipients = resolve_notification_recipients(template_emails, settings)
 
         profiles_dir = _settings_path(settings, "paths", "profiles_dir", default="profiles")
-        object_name = detect_template(template_data_for_detection, profiles_dir)
-        if object_name is None:
-            logger.error("object detected failed for %s", file_path.name)
-            return _failed_result(
-                file_path=file_path,
-                object_name=None,
-                message="Could not detect migration object",
-                template_emails=template_emails,
-                notification_recipients=notification_recipients,
-            )
+        if object_name_override:
+            object_name = object_name_override
+            logger.info("object override used: %s for %s", object_name, file_path.name)
+        else:
+            object_name = detect_template(template_data_for_detection, profiles_dir)
+            if object_name is None:
+                logger.error("object detected failed for %s", file_path.name)
+                return _failed_result(
+                    file_path=file_path,
+                    object_name=None,
+                    message="Could not detect migration object",
+                    template_emails=template_emails,
+                    notification_recipients=notification_recipients,
+                )
 
         logger.info("object detected: %s for %s", object_name, file_path.name)
         profile = load_profile(object_name, profiles_dir)

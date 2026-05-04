@@ -7,6 +7,20 @@ watcher:
   processed_dir: input/processed
   failed_dir: input/failed
 
+folder_scanner:
+  enabled: true
+  mode: object_folder
+  poll_interval_seconds: 10
+  stable_wait_seconds: 2
+  base_dir: input/object_batches
+  supported_extensions:
+    - .xlsx
+    - .xlsm
+    - .csv
+  use_folder_name_as_object: true
+  fallback_to_template_detection: true
+  process_once_default: false
+
 processing:
   apply_mapping: true
   generate_cleaned_template: true
@@ -42,4 +56,3 @@ notification:
     teams:
       enabled: false
       webhook_url_env: TEAMS_WEBHOOK_URL
-

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import time
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
+from automation.folder_scanner import get_object_folder_status, scan_once
+from automation.watcher import configure_logging, load_settings
 from app.audit_logger import generate_mapping_audit_report_bytes
 from app.autofix_engine import generate_cleaned_template
 from app.config_loader import ConfigLoaderError, load_config_files
@@ -37,9 +40,15 @@ def main() -> None:
     st.set_page_config(page_title="SAP Migration Pre-Validation Agent", layout="wide")
     st.title("SAP Migration Template Pre-Validation Agent")
 
-    mode = st.sidebar.radio("Mode", ["Manual Validation", "Semi-Automated Batch Mode"])
+    mode = st.sidebar.radio(
+        "Mode",
+        ["Manual Validation", "Semi-Automated Batch Mode", "Folder Scanner Mode"],
+    )
     if mode == "Semi-Automated Batch Mode":
         _render_batch_mode_page()
+        return
+    if mode == "Folder Scanner Mode":
+        _render_folder_scanner_page()
         return
 
     profile_names = list_profile_names(PROFILES_DIR)
@@ -276,6 +285,137 @@ def _render_batch_mode_page() -> None:
         st.text("\n".join(lines[-30:]) or "No batch processing entries yet.")
     else:
         st.info("No automation log found yet.")
+
+
+def _render_folder_scanner_page() -> None:
+    st.header("Folder Scanner Dashboard")
+    st.caption(
+        "Use this when object load files are dropped into watched object folders instead of uploaded manually."
+    )
+
+    settings = load_settings("automation/settings.yml")
+    scanner_settings = settings.get("folder_scanner", {}) or {}
+    paths_settings = settings.get("paths", {}) or {}
+    base_dir = _resolve_project_path(scanner_settings.get("base_dir", "input/object_batches"))
+    reports_dir = _resolve_project_path(paths_settings.get("output_reports_dir", "output/reports"))
+    log_path = ROOT / "logs" / "automation.log"
+    profile_names = list_profile_names(PROFILES_DIR)
+
+    col1, col2 = st.columns(2)
+    col1.metric("Base folder", str(base_dir))
+    col2.metric("Output reports folder", str(reports_dir))
+
+    if st.button("Refresh Status"):
+        _rerun()
+
+    st.subheader("Object Folder Status")
+    status_df = get_object_folder_status(base_dir)
+    if status_df.empty:
+        st.info("No object batch folders found yet.")
+    else:
+        st.dataframe(status_df, hide_index=True, use_container_width=True)
+
+    with st.expander("Object incoming folders", expanded=False):
+        for object_name in profile_names:
+            st.code(str(base_dir / object_name / "incoming"), language="text")
+
+    if st.button("Scan Folder Once", type="primary"):
+        with st.spinner("Scanning folders and running pre-validation..."):
+            configure_logging(settings)
+            results = scan_once(settings)
+        st.session_state["folder_scan_results"] = [result.model_dump() for result in results]
+        st.success(f"Processed {len(results)} file(s)")
+
+    _render_latest_folder_scan_results()
+
+    st.subheader("Folder scanner commands")
+    st.code("python -m automation.folder_scanner --once", language="bash")
+    st.code("python -m automation.folder_scanner", language="bash")
+    st.code(
+        "python -m automation.folder_scanner --settings automation/settings.yml --once",
+        language="bash",
+    )
+
+    st.subheader("Recent processing log")
+    if log_path.exists():
+        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        st.text("\n".join(lines[-30:]) or "No folder scanner entries yet.")
+    else:
+        st.info("No automation log found yet.")
+
+    auto_mode = st.checkbox("Enable auto scan (every 10s)", value=False)
+    if auto_mode:
+        time.sleep(10)
+        configure_logging(settings)
+        results = scan_once(settings)
+        st.session_state["folder_scan_results"] = [result.model_dump() for result in results]
+        _rerun()
+
+
+def _render_latest_folder_scan_results() -> None:
+    result_rows = st.session_state.get("folder_scan_results", [])
+    if not result_rows:
+        return
+
+    result_df = pd.DataFrame(
+        [
+            {
+                "file": row.get("file_name"),
+                "object": row.get("object_name"),
+                "status": row.get("status"),
+                "errors": row.get("error_count"),
+                "warnings": row.get("warning_count"),
+            }
+            for row in result_rows
+        ]
+    )
+    st.subheader("Latest Scan Results")
+    st.dataframe(result_df, hide_index=True, use_container_width=True)
+
+    for index, row in enumerate(result_rows, start=1):
+        st.caption(f"{row.get('file_name')} - {row.get('status')}")
+        columns = st.columns(3)
+        _download_artifact_button(columns[0], row.get("report_path"), "Download Report", index)
+        _download_artifact_button(
+            columns[1],
+            row.get("cleaned_template_path"),
+            "Download Cleaned Template",
+            index,
+        )
+        _download_artifact_button(
+            columns[2],
+            row.get("mapping_audit_path"),
+            "Download Mapping Audit",
+            index,
+        )
+
+
+def _download_artifact_button(column, artifact_path: str | None, label: str, index: int) -> None:
+    if not artifact_path:
+        column.write("")
+        return
+    path = Path(artifact_path)
+    if not path.exists():
+        column.warning(f"{label} unavailable")
+        return
+    column.download_button(
+        label=label,
+        data=path.read_bytes(),
+        file_name=path.name,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        key=f"folder_scan_{label}_{index}_{path.name}",
+    )
+
+
+def _resolve_project_path(value: object) -> Path:
+    path = Path(str(value))
+    return path if path.is_absolute() else ROOT / path
+
+
+def _rerun() -> None:
+    rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
+    if rerun:
+        rerun()
 
 
 if __name__ == "__main__":
