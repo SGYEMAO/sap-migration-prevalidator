@@ -1,0 +1,146 @@
+object: MATERIAL_MASTER
+description: Material Master Migration Template
+
+template_detection:
+  expected_sheets:
+    - Basic Data
+    - Plant Data
+    - Accounting Data
+  keywords:
+    - Material
+    - MaterialType
+    - BaseUoM
+
+config_sources:
+  plant:
+    filename: plant.xlsx
+    sheet: Sheet1
+    key_columns:
+      - Plant
+
+  storage_location:
+    filename: storage_location.xlsx
+    sheet: Sheet1
+    key_columns:
+      - Plant
+      - StorageLocation
+
+  uom:
+    filename: uom.xlsx
+    sheet: Sheet1
+    key_columns:
+      - UoM
+
+  material_type:
+    filename: material_type.xlsx
+    sheet: Sheet1
+    key_columns:
+      - MaterialType
+
+  valuation_class:
+    filename: valuation_class.xlsx
+    sheet: Sheet1
+    key_columns:
+      - MaterialType
+      - ValuationClass
+
+mappings:
+  base_uom:
+    filename: uom_mapping.xlsx
+    sheet: Sheet1
+    source_column: LegacyUoM
+    target_column: SAPUoM
+    target_field:
+      sheet: Basic Data
+      field: BaseUoM
+    strategy: exact
+    on_missing: keep_original
+    severity_on_missing: WARNING
+
+  plant:
+    filename: plant_mapping.xlsx
+    sheet: Sheet1
+    source_column: LegacyPlant
+    target_column: SAPPlant
+    target_field:
+      sheet: Plant Data
+      field: Plant
+    strategy: exact
+    on_missing: keep_original
+    severity_on_missing: ERROR
+
+  material_type:
+    filename: material_type_mapping.xlsx
+    sheet: Sheet1
+    source_column: LegacyMaterialType
+    target_column: SAPMaterialType
+    target_field:
+      sheet: Basic Data
+      field: MaterialType
+    strategy: exact
+    on_missing: keep_original
+    severity_on_missing: ERROR
+
+sheets:
+  Basic Data:
+    header_row: 1
+    fields:
+      Material:
+        required: true
+        max_length: 40
+      MaterialType:
+        required: true
+        config_check: material_type
+        config_key_mapping:
+          MaterialType: MaterialType
+      BaseUoM:
+        required: true
+        config_check: uom
+        config_key_mapping:
+          UoM: BaseUoM
+
+  Plant Data:
+    header_row: 1
+    fields:
+      Material:
+        required: true
+      Plant:
+        required: true
+        config_check: plant
+        config_key_mapping:
+          Plant: Plant
+      StorageLocation:
+        required: false
+        config_check: storage_location
+        config_key_mapping:
+          Plant: Plant
+          StorageLocation: StorageLocation
+
+  Accounting Data:
+    header_row: 1
+    fields:
+      Material:
+        required: true
+      MaterialType:
+        required: true
+      ValuationClass:
+        required: true
+        config_check: valuation_class
+        config_key_mapping:
+          MaterialType: MaterialType
+          ValuationClass: ValuationClass
+
+cross_sheet_rules:
+  - type: exists_in_sheet
+    source_sheet: Plant Data
+    source_field: Material
+    target_sheet: Basic Data
+    target_field: Material
+    message: Material in Plant Data must exist in Basic Data.
+
+  - type: unique_combination
+    sheet: Plant Data
+    fields:
+      - Material
+      - Plant
+    message: Material + Plant must be unique in Plant Data.

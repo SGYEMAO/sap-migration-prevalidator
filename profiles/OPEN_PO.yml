@@ -1,0 +1,107 @@
+object: OPEN_PO
+description: Open Purchase Order Migration Template
+
+template_detection:
+  expected_sheets:
+    - PO Header
+    - PO Item
+  keywords:
+    - PurchaseOrder
+    - Vendor
+    - PurchasingOrg
+    - PurchasingGroup
+
+config_sources:
+  purchasing_org:
+    filename: purchasing_org.xlsx
+    sheet: Sheet1
+    key_columns:
+      - PurchasingOrg
+
+  purchasing_group:
+    filename: purchasing_group.xlsx
+    sheet: Sheet1
+    key_columns:
+      - PurchasingGroup
+
+  vendor_master:
+    filename: vendor_master.xlsx
+    sheet: Sheet1
+    key_columns:
+      - Vendor
+
+mappings:
+  vendor:
+    filename: vendor_mapping.xlsx
+    sheet: Sheet1
+    source_column: LegacyVendor
+    target_column: SAPVendor
+    target_field:
+      sheet: PO Header
+      field: Vendor
+    strategy: trim_upper
+    on_missing: keep_original
+    severity_on_missing: ERROR
+
+  purchasing_org:
+    filename: purchasing_org_mapping.xlsx
+    sheet: Sheet1
+    source_column: LegacyPurchasingOrg
+    target_column: SAPPurchasingOrg
+    target_field:
+      sheet: PO Header
+      field: PurchasingOrg
+    strategy: exact
+    on_missing: keep_original
+    severity_on_missing: ERROR
+
+sheets:
+  PO Header:
+    header_row: 1
+    fields:
+      PurchaseOrder:
+        required: true
+        max_length: 10
+      Vendor:
+        required: true
+        config_check: vendor_master
+        config_key_mapping:
+          Vendor: Vendor
+      PurchasingOrg:
+        required: true
+        config_check: purchasing_org
+        config_key_mapping:
+          PurchasingOrg: PurchasingOrg
+      PurchasingGroup:
+        required: true
+        config_check: purchasing_group
+        config_key_mapping:
+          PurchasingGroup: PurchasingGroup
+
+  PO Item:
+    header_row: 1
+    fields:
+      PurchaseOrder:
+        required: true
+      Item:
+        required: true
+      Material:
+        required: true
+        max_length: 40
+      Plant:
+        required: true
+
+cross_sheet_rules:
+  - type: exists_in_sheet
+    source_sheet: PO Item
+    source_field: PurchaseOrder
+    target_sheet: PO Header
+    target_field: PurchaseOrder
+    message: PurchaseOrder in PO Item must exist in PO Header.
+
+  - type: unique_combination
+    sheet: PO Item
+    fields:
+      - PurchaseOrder
+      - Item
+    message: PurchaseOrder + Item must be unique in PO Item.

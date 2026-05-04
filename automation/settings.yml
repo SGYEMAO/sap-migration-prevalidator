@@ -1,0 +1,45 @@
+watcher:
+  enabled: true
+  poll_interval_seconds: 10
+  stable_wait_seconds: 2
+  input_dir: input/incoming
+  processing_dir: input/processing
+  processed_dir: input/processed
+  failed_dir: input/failed
+
+processing:
+  apply_mapping: true
+  generate_cleaned_template: true
+  use_local_llm: false
+  local_model_name: llama3.1:8b
+  stop_on_errors: false
+
+paths:
+  profiles_dir: profiles
+  config_dir: config_samples
+  mappings_dir: mappings
+  output_reports_dir: output/reports
+  output_cleaned_dir: output/cleaned_templates
+  output_mapping_audits_dir: output/mapping_audits
+  output_logs_dir: output/logs
+
+notification:
+  enabled: false
+  prefer_template_emails: true
+  fallback_to_default_recipients: true
+  max_template_recipients: 5
+  channels:
+    email:
+      enabled: false
+      smtp_host: smtp.example.com
+      smtp_port: 587
+      smtp_user: ""
+      smtp_password_env: SMTP_PASSWORD
+      sender: sap-agent@example.com
+      recipients:
+        - consultant@example.com
+
+    teams:
+      enabled: false
+      webhook_url_env: TEAMS_WEBHOOK_URL
+

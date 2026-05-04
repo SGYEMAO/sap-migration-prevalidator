@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Virtual env
+venv/
+.env/
+
+# Logs
+logs/
+*.log
+
+# Output files and reports
+output/
+reports/
+sap_migration_prevalidator/output/
+sap_migration_prevalidator/reports/
+
+# Automation runtime folders
+input/incoming/*
+input/processing/*
+input/processed/*
+input/failed/*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

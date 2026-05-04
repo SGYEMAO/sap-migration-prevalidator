@@ -1,0 +1,106 @@
+object: BP_CUSTOMER
+description: Business Partner Customer Migration Template
+
+template_detection:
+  expected_sheets:
+    - General Data
+    - Company Code Data
+  keywords:
+    - BusinessPartner
+    - Customer
+    - CompanyCode
+    - PaymentTerms
+
+config_sources:
+  company_code:
+    filename: company_code.xlsx
+    sheet: Sheet1
+    key_columns:
+      - CompanyCode
+
+  payment_terms:
+    filename: payment_terms.xlsx
+    sheet: Sheet1
+    key_columns:
+      - PaymentTerms
+
+  tax_code:
+    filename: tax_code.xlsx
+    sheet: Sheet1
+    key_columns:
+      - TaxCode
+
+mappings:
+  country:
+    filename: country_mapping.xlsx
+    sheet: Sheet1
+    source_column: LegacyCountry
+    target_column: SAPCountry
+    target_field:
+      sheet: General Data
+      field: Country
+    strategy: trim_upper
+    on_missing: keep_original
+    severity_on_missing: WARNING
+
+  payment_terms:
+    filename: payment_terms_mapping.xlsx
+    sheet: Sheet1
+    source_column: LegacyPaymentTerms
+    target_column: SAPPaymentTerms
+    target_field:
+      sheet: Company Code Data
+      field: PaymentTerms
+    strategy: exact
+    on_missing: keep_original
+    severity_on_missing: ERROR
+
+sheets:
+  General Data:
+    header_row: 1
+    fields:
+      BusinessPartner:
+        required: true
+        max_length: 10
+      Customer:
+        required: true
+        max_length: 10
+      Name:
+        required: true
+        max_length: 80
+
+  Company Code Data:
+    header_row: 1
+    fields:
+      Customer:
+        required: true
+      CompanyCode:
+        required: true
+        config_check: company_code
+        config_key_mapping:
+          CompanyCode: CompanyCode
+      PaymentTerms:
+        required: true
+        config_check: payment_terms
+        config_key_mapping:
+          PaymentTerms: PaymentTerms
+      TaxCode:
+        required: false
+        config_check: tax_code
+        config_key_mapping:
+          TaxCode: TaxCode
+
+cross_sheet_rules:
+  - type: exists_in_sheet
+    source_sheet: Company Code Data
+    source_field: Customer
+    target_sheet: General Data
+    target_field: Customer
+    message: Customer in Company Code Data must exist in General Data.
+
+  - type: unique_combination
+    sheet: Company Code Data
+    fields:
+      - Customer
+      - CompanyCode
+    message: Customer + CompanyCode must be unique in Company Code Data.
