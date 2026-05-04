@@ -297,10 +297,14 @@ The included `sample_templates/material_master_legacy_values_sample.xlsx` demons
 
 ```bash
 pytest tests -q
-```
+
+```## Development Workflow
+
+This project uses a branch-based pull request workflow. Develop changes on feature branches, run tests locally, push the branch, and open a pull request into `main`.
 ## Security Notes
 
 - Do not commit real SAP data.
 - Do not commit production mapping files.
 - Do not store SMTP passwords or webhook URLs in settings.yml.
 - Use environment variables for secrets.
+
